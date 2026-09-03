@@ -21,6 +21,22 @@ organizadores crean torneos y los usuarios se inscriben como participantes.
 - `GET /api/health` — verifica que el servidor está activo
 - `GET /api/events` — placeholder, en desarrollo
 - `GET /api/sessions` — placeholder, en desarrollo
+- `POST /api/sessions/register` — registra un nuevo usuario
+
+### POST /api/sessions/register
+Body (JSON):
+```json
+{
+  "first_name": "string",
+  "last_name": "string",
+  "email": "string",
+  "password": "string (mínimo 6 caracteres)"
+}
+```
+Respuestas:
+- `201` — usuario creado (sin password en la respuesta)
+- `400` — campos faltantes o contraseña muy corta
+- `409` — email ya registrado
 
 ## Variables de entorno
 - `PORT`: puerto del servidor
