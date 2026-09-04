@@ -1,5 +1,4 @@
-// controllers/sessions.controller.js
-import { registerUser, loginUser } from '../services/sessions.service.js'
+import { generateToken } from '../utils/jwt.js'
 
 export const getSessions = async (req, res) => {
     try {
@@ -9,83 +8,50 @@ export const getSessions = async (req, res) => {
     }
 }
 
-export const register = async (req, res) => {
-    try {
-        const { first_name, last_name, email, password } = req.body
-
-        if (!first_name || !last_name || !email || !password) {
-            return res.status(400).json({
-                status: 'error',
-                message: 'Faltan campos obligatorios'
-            })
+export const registerResponse = (req, res) => {
+    res.status(201).json({
+        status: 'success',
+        message: 'Usuario registrado correctamente',
+        payload: {
+            id: req.user._id,
+            first_name: req.user.first_name,
+            last_name: req.user.last_name,
+            email: req.user.email,
+            role: req.user.role
         }
-
-        if (password.length < 6) {
-            return res.status(400).json({
-                status: 'error',
-                message: 'La contraseña debe tener al menos 6 caracteres'
-            })
-        }
-
-        const newUser = await registerUser({ first_name, last_name, email, password })
-
-        res.status(201).json({
-            status: 'success',
-            payload: {
-                id: newUser._id,
-                first_name: newUser.first_name,
-                last_name: newUser.last_name,
-                email: newUser.email,
-                role: newUser.role
-            }
-        })
-    } catch (error) {
-        if (error.message === 'EMAIL_EXISTS') {
-            return res.status(409).json({
-                status: 'error',
-                message: 'El email ya está registrado'
-            })
-        }
-        res.status(500).json({ status: 'error', message: 'Error interno del servidor' })
-    }
+    })
 }
 
-export const login = async (req, res) => {
-    try {
-        const { email, password } = req.body
-
-        if (!email || !password) {
-            return res.status(400).json({
-                status: 'error',
-                message: 'Faltan campos obligatorios'
-            })
-        }
-        
-        const token = await loginUser({ email, password })
-        res.cookie('currentUser', token, { 
-            httpOnly: true, 
-            maxAge: 3600000, 
-            sameSite: 'lax', 
-            secure: process.env.NODE_ENV === 'production' })
-        res.status(200).json({
-            status: 'success', message: 'Login correcto',
-            
-        })
-    } catch (error) {
-        if (error.message === 'INVALID_CREDENTIALS') {
-            return res.status(401).json({
-                status: 'error',
-                message: 'Credenciales inválidas'
-            })
-        }
-        res.status(500).json({ status: 'error', message: 'Error interno del servidor' })
+export const loginResponse = (req, res) => {
+    const tokenUser = {
+        id: req.user._id,
+        email: req.user.email,
+        role: req.user.role
     }
+
+    const token = generateToken(tokenUser)
+
+    res.cookie('currentUser', token, {
+        httpOnly: true,
+        maxAge: 3600000,
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production'
+    })
+
+    res.status(200).json({
+        status: 'success',
+        message: 'Login correcto'
+    })
 }
 
 export const getCurrentUser = (req, res) => {
     res.status(200).json({
         status: 'success',
-        payload: req.user
+        payload: {
+            id: req.user._id,
+            email: req.user.email,
+            role: req.user.role
+        }
     })
 }
 

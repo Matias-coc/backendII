@@ -1,13 +1,13 @@
 import { Router } from 'express'
-import { getSessions, register, login, getCurrentUser, logout } from '../controllers/sessions.controller.js'
-import { authMiddleware } from '../middlewares/auth.middleware.js'
+import passport from 'passport'
+import { getSessions, registerResponse, loginResponse, getCurrentUser, logout } from '../controllers/sessions.controller.js'
 
 const router = Router()
 
 router.get('/', getSessions)
-router.post('/register', register)
-router.post('/login', login)
-router.get('/current', authMiddleware, getCurrentUser)
+router.post('/register', passport.authenticate('register', { session: false }), registerResponse)
+router.post('/login', passport.authenticate('login', { session: false }), loginResponse)
+router.get('/current', passport.authenticate('current', { session: false }), getCurrentUser)
 router.post('/logout', logout)
 
 export default router
