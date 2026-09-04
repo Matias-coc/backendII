@@ -60,7 +60,7 @@ export const login = async (req, res) => {
                 message: 'Faltan campos obligatorios'
             })
         }
-
+        
         const token = await loginUser({ email, password })
         res.cookie('currentUser', token, { 
             httpOnly: true, 

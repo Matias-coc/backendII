@@ -26,7 +26,7 @@ organizadores crean torneos y los usuarios se inscriben como participantes.
 | POST | /api/sessions/register | Registra un nuevo usuario | No |
 | POST | /api/sessions/login | Inicia sesión y setea cookie JWT | No |
 | GET | /api/sessions/current | Devuelve el usuario autenticado | Sí |
-| POST | /api/sessions/logout | Cierra sesión (borra la cookie) | No |
+| POST | /api/sessions/logout | Cierra sesión (borra la cookie) | No | 
 
 ### POST /api/sessions/register
 Body (JSON):
