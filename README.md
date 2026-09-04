@@ -18,25 +18,69 @@ organizadores crean torneos y los usuarios se inscriben como participantes.
 4. Iniciá el servidor: `npm run dev`
 
 ## Endpoints disponibles
-- `GET /api/health` — verifica que el servidor está activo
-- `GET /api/events` — placeholder, en desarrollo
-- `GET /api/sessions` — placeholder, en desarrollo
-- `POST /api/sessions/register` — registra un nuevo usuario
+| Método | Ruta | Descripción | Protegida |
+|---|---|---|---|
+| GET | /api/health | Verifica que el servidor está activo | No |
+| GET | /api/events | Placeholder, en desarrollo | No |
+| GET | /api/sessions | Placeholder, en desarrollo | No |
+| POST | /api/sessions/register | Registra un nuevo usuario | No |
+| POST | /api/sessions/login | Inicia sesión y setea cookie JWT | No |
+| GET | /api/sessions/current | Devuelve el usuario autenticado | Sí |
+| POST | /api/sessions/logout | Cierra sesión (borra la cookie) | No |
 
 ### POST /api/sessions/register
 Body (JSON):
 ```json
-{
-  "first_name": "string",
-  "last_name": "string",
-  "email": "string",
-  "password": "string (mínimo 6 caracteres)"
-}
+{ "first_name": "Ana", 
+"last_name": "Pérez", 
+"email": "ana@mail.com", 
+"password": "Secreta123" }
 ```
-Respuestas:
-- `201` — usuario creado (sin password en la respuesta)
-- `400` — campos faltantes o contraseña muy corta
-- `409` — email ya registrado
+Response 201:
+```json
+{ "status": "success", 
+"payload": { 
+  "id": "...", 
+  "first_name": "Ana", 
+  "last_name": "Pérez", 
+  "email": "ana@mail.com", 
+  "role": "user" } 
+  }
+```
+
+### POST /api/sessions/login
+Request:
+```json
+{ "email": "ana@mail.com", 
+"password": "Secreta123" }
+```
+Response 200 (setea cookie `currentUser`):
+```json
+{ "status": "success", "message": "Login correcto" }
+```
+Response 401 (credenciales inválidas):
+```json
+{ "status": "error", "message": "Credenciales inválidas" }
+```
+
+### GET /api/sessions/current
+Requiere la cookie `currentUser`. Response 200:
+```json
+{ "status": "success", 
+"payload": { "id": "...", 
+"email": "ana@mail.com", 
+"role": "user" } }
+```
+Response 401 (sin cookie o token inválido):
+```json
+{ "status": "error", "message": "No autenticado" }
+```
+
+### POST /api/sessions/logout
+Response 200:
+```json
+{ "status": "success", "message": "Sesión cerrada" }
+```
 
 ## Variables de entorno
 - `PORT`: puerto del servidor
