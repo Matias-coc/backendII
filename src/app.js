@@ -1,5 +1,5 @@
 import express from 'express'
-import eventsRouter from './routes/events.routes.js'
+import eventsRouter from './routes/events.router.js'
 import sessionsRouter from './routes/sessions.router.js'
 import cookieParser from 'cookie-parser'
 import passport from './config/passport.config.js'

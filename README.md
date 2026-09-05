@@ -129,3 +129,64 @@ Response 200:
 - Registro con email duplicado → 409 ✅
 - Login con credenciales inválidas → 401 ✅
 - /current sin cookie → 401 ✅
+
+## Autorización por propiedad de recursos
+
+Además de la autorización por rol, el sistema valida que un `organizer` solo
+pueda modificar los eventos que él mismo creó. Esta validación vive en
+`middlewares/authorizeOwner.middleware.js`:
+
+```js
+const isAdmin = req.user.role === 'admin'
+const isOwner = event.organizer.toString() === req.user._id.toString()
+
+if (!isAdmin && !isOwner) {
+    return res.status(403).json({ status: 'error', message: 'No tenés permisos sobre este evento' })
+}
+```
+
+**Caso probado:** el dueño (Leo, organizer) editó su propio evento → 200.
+Admin (Ana) editó el mismo evento sin ser el dueño → 200 (permiso total).
+
+**Caso verificado por lógica de código (no probado con un segundo organizer
+por restricciones de tiempo):** si otro `organizer` distinto al dueño
+intentara editar este evento, `isOwner` daría `false` y `isAdmin` también
+`false` (su rol es organizer, no admin), por lo que el middleware
+respondería `403 - "No tenés permisos sobre este evento"`.
+
+## Roles del sistema
+
+- `user`: rol por defecto al registrarse. Puede consultar torneos e
+  inscribirse (a implementar en Módulo 7).
+- `organizer`: puede crear torneos y modificar/cancelar los propios.
+- `admin`: acceso total, incluyendo gestión de usuarios y cualquier torneo.
+
+El registro público (`POST /api/sessions/register`) siempre asigna `role: 'user'`,
+sin importar qué se envíe en el body — los roles `organizer` y `admin` se
+asignan manualmente en la base de datos.
+
+## Matriz de permisos
+
+| Acción | user | organizer | admin |
+|---|---|---|---|
+| Consultar torneos publicados | ✅ | ✅ | ✅ |
+| Crear torneos | ❌ | ✅ | ✅ |
+| Modificar/cancelar torneos propios | ❌ | ✅ | ✅ |
+| Modificar cualquier torneo | ❌ | ❌ | ✅ |
+| Ver todos los usuarios | ❌ | ❌ | ✅ |
+
+## Diferencia entre 401 y 403
+
+- **401 No autenticado**: no hay cookie, el token es inválido o expiró.
+  El backend no sabe quién es el usuario.
+- **403 Sin permisos**: el usuario está autenticado (el backend sabe quién
+  es), pero su rol no le permite realizar esa acción.
+
+## Rutas protegidas
+
+| Método | Ruta | Protección |
+|---|---|---|
+| GET | /api/sessions/current | Autenticación (401 si no hay sesión) |
+| GET | /api/sessions/users | Autenticación + rol admin (403 si no es admin) |
+| POST | /api/events | Autenticación + rol organizer/admin (403 si es user) |
+| PUT | /api/events/:id | Autenticación + rol + propiedad del recurso o admin |
