@@ -16,6 +16,7 @@ organizadores crean torneos y los usuarios se inscriben como participantes.
 - bcrypt
 - cookie-parser
 - dotenv
+- Nodemailer
 
 ## Instalación
 1. Cloná el repositorio
@@ -29,6 +30,8 @@ organizadores crean torneos y los usuarios se inscriben como participantes.
 - `MONGO_URL`: string de conexión a MongoDB Atlas
 - `JWT_SECRET`: clave secreta para firmar los JWT
 - `JWT_EXPIRES_IN`: tiempo de expiración del token (ej. `1h`)
+- `MAIL_HOST`, `MAIL_PORT`, `MAIL_USER`, `MAIL_PASS`, `MAIL_FROM`: credenciales
+  del servicio de email (Nodemailer)
 
 ## Estructura de carpetas
 
@@ -37,7 +40,8 @@ src/
 ├── server.js
 ├── config/
 │ ├── database.js
-│ └── passport.config.js
+│ ├── passport.config.js
+│ └── mailer.config.js
 ├── routes/
 ├── controllers/
 ├── services/
@@ -46,6 +50,7 @@ src/
 ├── models/
 ├── middlewares/
 └── utils/
+
 
 ## Autenticación con Passport.js
 
@@ -71,20 +76,28 @@ Después de una autenticación exitosa vía Passport, es el **controller** quien
 genera el JWT y configura la cookie — Passport nunca genera tokens
 directamente, solo valida usuarios.
 
+La verificación de la estrategia `current` está centralizada en
+`middlewares/auth.middleware.js` (`authenticateCurrent`), reutilizada en
+todas las rutas protegidas que requieren sesión activa, en vez de repetir
+`passport.authenticate('current', ...)` en cada router.
+
 ## Roles y autorización
 
-## Roles del sistema
-
+### Roles del sistema
 - `user`: rol por defecto al registrarse. Puede consultar torneos e
-  inscribirse (a implementar en Módulo 7).
+  inscribirse a eventos.
 - `organizer`: puede crear torneos y modificar/cancelar los propios.
 - `admin`: acceso total, incluyendo gestión de usuarios y cualquier torneo.
+
+El campo `role` tiene una validación `enum: ['user', 'organizer', 'admin']`
+a nivel de modelo, para evitar que se persista cualquier valor inválido en
+la base de datos.
 
 El registro público (`POST /api/sessions/register`) siempre asigna `role: 'user'`,
 sin importar qué se envíe en el body — los roles `organizer` y `admin` se
 asignan manualmente en la base de datos.
 
-## Matriz de permisos
+### Matriz de permisos
 
 | Acción | user | organizer | admin |
 |---|---|---|---|
@@ -93,9 +106,10 @@ asignan manualmente en la base de datos.
 | Modificar/cancelar torneos propios | ❌ | ✅ | ✅ |
 | Modificar cualquier torneo | ❌ | ❌ | ✅ |
 | Ver todos los usuarios | ❌ | ❌ | ✅ |
+| Inscribirse a un torneo | ✅ | ✅ | ✅ |
+| Ver inscriptos de un torneo | ❌ | solo propios | ✅ |
 
-## Diferencia entre 401 y 403
-
+### Diferencia entre 401 y 403
 - **401 No autenticado**: no hay cookie, el token es inválido o expiró.
   El backend no sabe quién es el usuario.
 - **403 Sin permisos**: el usuario está autenticado (el backend sabe quién
@@ -104,8 +118,10 @@ asignan manualmente en la base de datos.
 ### Autorización por propiedad de recursos
 
 Además de la autorización por rol, el sistema valida que un `organizer` solo
-pueda modificar los eventos que él mismo creó. Esta validación vive en
-`middlewares/authorizeOwner.middleware.js`:
+pueda modificar los eventos que él mismo creó, y que un usuario solo pueda
+cancelar sus propios tickets. Esta validación vive en
+`middlewares/authorizeOwner.middleware.js` (para eventos) y directamente en
+`services/tickets.service.js` (para tickets):
 
 ```js
 const isAdmin = req.user.role === 'admin'
@@ -119,8 +135,8 @@ if (!isAdmin && !isOwner) {
 **Casos probados:**
 - El dueño (Leo, organizer) editó su propio evento → 200
 - Admin (Ana) editó un evento ajeno (creado por Leo) → 200 (permiso total)
-- Un organizer distinto al dueño (Carlos, tras cambiar su rol) intentó editar
-  un evento ajeno → 403
+- Un organizer distinto al dueño (Carlos) intentó editar un evento ajeno → 403
+- Un usuario intentó cancelar el ticket de otro → 403
 
 ## Rutas disponibles
 
@@ -137,7 +153,10 @@ if (!isAdmin && !isOwner) {
 | GET | /api/events/:id | Consulta un torneo puntual | Público |
 | PUT | /api/events/:id | Modifica un torneo | dueño del evento o admin |
 | PATCH | /api/events/:id/status | Cambia el estado de un torneo | dueño del evento o admin |
-
+| POST | /api/events/:eid/tickets | Inscribe al usuario autenticado a un torneo | Autenticado |
+| GET | /api/events/:eid/tickets | Lista inscriptos de un torneo | dueño del torneo o admin |
+| GET | /api/tickets/my-tickets | Lista las inscripciones propias | Autenticado |
+| PATCH | /api/tickets/:tid/cancel | Cancela una inscripción | dueño del ticket o admin |
 
 ### POST /api/sessions/register
 Request:
@@ -179,22 +198,6 @@ Response 200:
 { "status": "success", "message": "Sesión cerrada" }
 ```
 
-### GET /api/sessions/current
-Requiere la cookie `currentUser`. Response 200:
-```json
-{ "status": "success", "payload": { "id": "...", "email": "ana@mail.com", "role": "user" } }
-```
-Response 401 (sin cookie o token inválido/expirado):
-```json
-{ "status": "error", "message": "No autenticado" }
-```
-
-### POST /api/sessions/logout
-Response 200:
-```json
-{ "status": "success", "message": "Sesión cerrada" }
-```
-
 ## Entidad Events
 
 ### Modelo
@@ -208,7 +211,7 @@ nunca desde el body), `discipline` (campo propio de la temática de torneos e-sp
 `dateFrom`, `dateTo`, `page`, `limit` (máx. 50), `sort`. La respuesta incluye
 `data`, `page`, `limit`, `total`, `totalPages`.
 
-Ejemplo: GET /api/events?status=published&category=65f1...&page=1&limit=5
+Ejemplo: `GET /api/events?status=published&category=65f1...&page=1&limit=5`
 
 ### Reglas de negocio (en la capa `services`)
 - No se puede crear un evento con fecha pasada
@@ -216,6 +219,42 @@ Ejemplo: GET /api/events?status=published&category=65f1...&page=1&limit=5
 - Un evento cancelado no puede modificarse (ni con PUT ni con PATCH de estado)
 - Cancelar un evento cambia su `status` a `cancelled`; nunca se elimina físicamente
 - El campo `organizer` siempre se asigna desde `req.user`, nunca puede venir del body
+
+## Entidad Ticket
+
+### Modelo
+`user` (referencia a `User`), `event` (referencia a `Event`), `status`
+(`confirmed`/`pending`/`cancelled`), `quantity`, `reservationCode` (único,
+generado automáticamente), `cancelledAt`. Solo referencias, sin objetos
+embebidos completos.
+
+### Flujo de inscripción (validaciones en `services`, no en el controller)
+1. El evento debe existir
+2. El evento debe estar en estado `published`
+3. El evento no debe haber finalizado (fecha futura)
+4. `quantity` debe ser un número mayor a 0
+5. El usuario no puede tener ya un ticket activo (`confirmed`/`pending`) para ese evento
+6. Debe haber cupo disponible: `capacity - tickets activos reservados ≥ quantity`
+
+### Regla de cupos
+Los cupos ocupados se calculan sumando `quantity` de todos los tickets con
+estado `confirmed` o `pending` para ese evento. Los tickets `cancelled`
+**no** cuentan para el cupo — por eso cancelar un ticket libera lugar
+automáticamente para nuevas inscripciones, sin necesidad de modificar el
+evento manualmente.
+
+### Cancelación
+Cambia `status` a `cancelled` y registra `cancelledAt`. **Nunca se elimina
+el documento** — se conserva el historial completo. Antes de cancelar, se
+valida que el ticket exista, que pertenezca al solicitante (o que sea
+`admin`), y que no esté ya cancelado.
+
+### Notificaciones con Nodemailer
+Se envía un email de confirmación al crear un ticket, y uno de cancelación
+al cancelarlo. En este proyecto se usa **Ethereal** (servicio de testing de
+Nodemailer) para no enviar correos reales durante el desarrollo — los
+emails se pueden previsualizar desde la URL que devuelve
+`nodemailer.getTestMessageUrl()`, impresa en consola tras cada envío.
 
 ## Pruebas realizadas
 
@@ -236,12 +275,14 @@ Ejemplo: GET /api/events?status=published&category=65f1...&page=1&limit=5
 8. Listado con filtros combinados y paginación → 200 ✅
 9. Consultar evento inexistente → 404 ✅
 
-
-## Rutas protegidas
-
-| Método | Ruta | Protección |
-|---|---|---|
-| GET | /api/sessions/current | Autenticación (401 si no hay sesión) |
-| GET | /api/sessions/users | Autenticación + rol admin (403 si no es admin) |
-| POST | /api/events | Autenticación + rol organizer/admin (403 si es user) |
-| PUT | /api/events/:id | Autenticación + rol + propiedad del recurso o admin |
+**Tickets:**
+1. Inscripción exitosa → email recibido y verificado en Ethereal ✅
+2. Inscripción sin sesión → 401 ✅
+3. Inscripción a evento inexistente → 404 ✅
+4. Inscripción a evento cancelado → 400 ✅
+5. Inscripción sin cupo suficiente → 400 ✅
+6. Inscripción duplicada activa → 409 ✅
+7. Cancelación propia → cupo liberado, nueva inscripción exitosa por ese cupo ✅
+8. Cancelación de ticket ajeno como user → 403 ✅
+9. Consultar inscriptos de un evento como user común → 403 ✅
+10. Consultar inscriptos como organizer de otro evento → 403 ✅
