@@ -28,7 +28,9 @@ organizadores crean torneos y los usuarios se inscriben como participantes.
 - `PORT`: puerto del servidor
 - `NODE_ENV`: entorno de ejecución
 - `MONGO_URL`: string de conexión a MongoDB Atlas
-- `JWT_SECRET`: clave secreta para firmar los JWT
+- `JWT_SECRET`: clave secreta para firmar los JWT. **Obligatoria** — si falta,
+  la aplicación no arranca y corta con un error explícito en consola, en
+  vez de firmar tokens con una clave `undefined`.
 - `JWT_EXPIRES_IN`: tiempo de expiración del token (ej. `1h`)
 - `MAIL_HOST`, `MAIL_PORT`, `MAIL_USER`, `MAIL_PASS`, `MAIL_FROM`: credenciales
   del servicio de email (Nodemailer)
@@ -51,6 +53,50 @@ src/
 ├── middlewares/
 └── utils/
 
+## Arquitectura en capas
+
+El proyecto sigue una arquitectura en capas para separar responsabilidades:
+
+Route → Controller → Service → Repository → DAO → Model
+
+Y al responder:
+
+Model → DAO → Repository → Service → DTO → Controller → Response
+
+
+- **Routes**: definen los endpoints y qué middlewares/controlador se ejecutan.
+  No contienen lógica.
+- **Controllers**: extraen datos de `req` (body/params/query), llaman al
+  service correspondiente y devuelven la respuesta. No importan modelos de
+  Mongoose ni calculan reglas de negocio.
+- **Services**: concentran toda la lógica de negocio (validación de cupos,
+  estados, duplicados, fechas, permisos sobre recursos propios, envío de
+  emails). Son los únicos que orquestan múltiples repositories.
+- **Repositories**: capa intermedia orientada al dominio (`getUserByEmail`,
+  `getActiveTicket`, etc.). Usan el DAO correspondiente, nunca importan
+  modelos directamente.
+- **DAO**: los únicos archivos que importan modelos de Mongoose directamente
+  y ejecutan las operaciones reales contra MongoDB (`find`, `create`,
+  `findByIdAndUpdate`, etc.).
+- **DTO**: controlan qué datos viajan en la respuesta al cliente. Existen
+  para usuario autenticado (`CurrentUserDTO`), evento (`EventResponseDTO`) y
+  ticket (`TicketResponseDTO`). Ningún endpoint expone `password`, incluso
+  cuando el documento viene con `.populate()` de otro documento relacionado.
+
+### Manejo de errores
+Cada service lanza errores con un código interno (ej. `PAST_DATE`,
+`FORBIDDEN`, `DUPLICATE_TICKET`). Los controllers traducen ese código a la
+respuesta HTTP correcta usando un mapa de errores (`errorMap`), consistente
+en `events.controller.js` y `tickets.controller.js`:
+
+| Código interno | HTTP | Significado |
+|---|---|---|
+| `MISSING_FIELDS`, `INVALID_CAPACITY`, `INVALID_PRICE`, `PAST_DATE`, `INVALID_QUANTITY` | 400 | Datos inválidos |
+| — (sin cookie/token) | 401 | No autenticado |
+| `FORBIDDEN` | 403 | Sin permisos |
+| `EVENT_NOT_FOUND`, `TICKET_NOT_FOUND` | 404 | No encontrado |
+| `DUPLICATE_TICKET` | 409 | Conflicto |
+| Error no mapeado | 500 | Error interno |
 
 ## Autenticación con Passport.js
 
@@ -80,6 +126,11 @@ La verificación de la estrategia `current` está centralizada en
 `middlewares/auth.middleware.js` (`authenticateCurrent`), reutilizada en
 todas las rutas protegidas que requieren sesión activa, en vez de repetir
 `passport.authenticate('current', ...)` en cada router.
+
+Las estrategias de `passport.config.js` no acceden a `UserModel`
+directamente — consultan y crean usuarios a través de
+`repositories/users.repository.js`, respetando la misma arquitectura en
+capas del resto del proyecto.
 
 ## Roles y autorización
 
@@ -219,6 +270,12 @@ Ejemplo: `GET /api/events?status=published&category=65f1...&page=1&limit=5`
 - Un evento cancelado no puede modificarse (ni con PUT ni con PATCH de estado)
 - Cancelar un evento cambia su `status` a `cancelled`; nunca se elimina físicamente
 - El campo `organizer` siempre se asigna desde `req.user`, nunca puede venir del body
+- **En la actualización (`PUT /api/events/:id`), solo se aceptan campos de
+  una lista blanca** (`title`, `description`, `category`, `date`, `location`,
+  `capacity`, `price`, `discipline`) — cualquier otro campo enviado en el
+  body (como `organizer` o `status`) se ignora. Los campos `date`,
+  `capacity` y `price` se re-validan con las mismas reglas que en la
+  creación.
 
 ## Entidad Ticket
 
@@ -286,3 +343,4 @@ emails se pueden previsualizar desde la URL que devuelve
 8. Cancelación de ticket ajeno como user → 403 ✅
 9. Consultar inscriptos de un evento como user común → 403 ✅
 10. Consultar inscriptos como organizer de otro evento → 403 ✅
+
