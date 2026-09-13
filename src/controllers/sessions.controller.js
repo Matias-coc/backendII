@@ -1,5 +1,6 @@
 import { generateToken } from "../utils/jwt.js";
-import { UserModel } from "../models/User.js";
+import { getAllUsersDB } from '../repositories/users.repository.js'
+import { CurrentUserDTO } from '../dto/current-user.dto.js'
 
 export const getSessions = async (req, res) => {
   try {
@@ -10,16 +11,11 @@ export const getSessions = async (req, res) => {
 };
 
 export const registerResponse = (req, res) => {
+  const userDTO = new CurrentUserDTO(req.user)
   res.status(201).json({
     status: "success",
     message: "Usuario registrado correctamente",
-    payload: {
-      id: req.user._id,
-      first_name: req.user.first_name,
-      last_name: req.user.last_name,
-      email: req.user.email,
-      role: req.user.role,
-    },
+    payload: userDTO,
   });
 };
 
@@ -46,15 +42,9 @@ export const loginResponse = (req, res) => {
 };
 
 export const getCurrentUser = (req, res) => {
-  res.status(200).json({
-    status: "success",
-    payload: {
-      id: req.user._id,
-      email: req.user.email,
-      role: req.user.role,
-    },
-  });
-};
+    const userDTO = new CurrentUserDTO(req.user)
+    res.status(200).json({ status: 'success', payload: userDTO })
+}
 
 export const logout = (req, res) => {
   res.clearCookie("currentUser");
@@ -66,10 +56,11 @@ export const logout = (req, res) => {
 
 export const getAllUsers = async (req, res) => {
   try {
-    const users = await UserModel.find();
+    const users = await getAllUsersDB()
+    const usersDTO = users.map(user => new CurrentUserDTO(user))
     res.status(200).json({
       status: "success",
-      payload: users,
+      payload: usersDTO,
     });
   } catch (error) {
     res.status(500).json({

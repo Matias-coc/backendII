@@ -1,7 +1,7 @@
 import passport from 'passport'
 import { Strategy as LocalStrategy } from 'passport-local'
 import { Strategy as JwtStrategy } from 'passport-jwt'
-import { UserModel } from '../models/User.js'
+import { getUserByEmail, saveUser, getUserById } from '../repositories/users.repository.js'
 import { createHash, isValidPassword } from '../utils/hash.js'
 
 
@@ -16,14 +16,14 @@ passport.use('register', new LocalStrategy(
             }
 
             const normalizedEmail = email.toLowerCase().trim()
-            const userExists = await UserModel.findOne({ email: normalizedEmail })
+            const userExists = await getUserByEmail(normalizedEmail)
 
             if (userExists) {
                 return done(null, false, { message: 'El email ya está registrado' })
             }
 
             const hashedPassword = await createHash(password)
-            const newUser = await UserModel.create({
+            const newUser = await saveUser({
                 first_name, last_name, email: normalizedEmail,
                 password: hashedPassword, role: 'user'
             })
@@ -41,8 +41,7 @@ passport.use('login', new LocalStrategy(
     async (email, password, done) => {
         try {
             const normalizedEmail = email.toLowerCase().trim()
-            const user = await UserModel.findOne({ email: normalizedEmail })
-
+            const user = await getUserByEmail(normalizedEmail)
             if (!user) {
                 return done(null, false, { message: 'Credenciales inválidas' })
             }
@@ -73,7 +72,7 @@ passport.use('current', new JwtStrategy(
     { jwtFromRequest: cookieExtractor, secretOrKey: process.env.JWT_SECRET },
     async (jwtPayload, done) => {
         try {
-            const user = await UserModel.findById(jwtPayload.id)
+            const user = await getUserById(jwtPayload.id)
 
             if (!user) {
                 return done(null, false, { message: 'Usuario no encontrado' })

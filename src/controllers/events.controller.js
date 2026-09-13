@@ -1,5 +1,7 @@
 import { createEventService, listEventsService, updateEventService, changeEventStatusService } from '../services/events.service.js'
 import { getEventById } from '../repositories/events.repository.js'
+import { EventResponseDTO } from '../dto/event-response.dto.js'
+
 
 const errorMap = {
     MISSING_FIELDS: [400, 'Faltan campos obligatorios'],
@@ -21,7 +23,8 @@ const handleServiceError = (error, res) => {
 export const createEvent = async (req, res) => {
     try {
         const newEvent = await createEventService(req.body || {}, req.user._id)
-        res.status(201).json({ status: 'success', payload: newEvent })
+        const eventDTO = new EventResponseDTO (newEvent)
+        res.status(201).json({ status: 'success', payload: eventDTO })
     } catch (error) {
         handleServiceError(error, res)
     }
@@ -30,7 +33,8 @@ export const createEvent = async (req, res) => {
 export const getEvents = async (req, res) => {
     try {
         const result = await listEventsService(req.query)
-        res.status(200).json({ status: 'success', ...result })
+        const eventsDTO = result.data.map(event => new EventResponseDTO(event))
+        res.status(200).json({ status: 'success', ...result, data: eventsDTO })
     } catch (error) {
         handleServiceError(error, res)
     }
@@ -42,7 +46,8 @@ export const getEventDetail = async (req, res) => {
         if (!event) {
             return res.status(404).json({ status: 'error', message: 'Evento no encontrado' })
         }
-        res.status(200).json({ status: 'success', payload: event })
+        const eventDTO = new EventResponseDTO(event)
+        res.status(200).json({ status: 'success', payload: eventDTO })
     } catch (error) {
         res.status(500).json({ status: 'error', message: 'Error al obtener el evento' })
     }
@@ -51,7 +56,8 @@ export const getEventDetail = async (req, res) => {
 export const updateEvent = async (req, res) => {
     try {
         const updated = await updateEventService(req.event, req.body)
-        res.status(200).json({ status: 'success', payload: updated })
+        const eventDTO = new EventResponseDTO(updated)
+        res.status(200).json({ status: 'success', payload: eventDTO })
     } catch (error) {
         handleServiceError(error, res)
     }
@@ -61,7 +67,8 @@ export const changeEventStatus = async (req, res) => {
     try {
         const { status } = req.body
         const updated = await changeEventStatusService(req.event, status)
-        res.status(200).json({ status: 'success', payload: updated })
+        const eventDTO = new EventResponseDTO(updated)
+        res.status(200).json({ status: 'success', payload: eventDTO })
     } catch (error) {
         handleServiceError(error, res)
     }

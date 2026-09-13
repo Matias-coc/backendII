@@ -65,7 +65,32 @@ export const updateEventService = async (event, updateData) => {
         throw new Error('EVENT_CANCELLED')
     }
 
-    return await saveEventUpdate(event._id, updateData)
+    const editableFields = ['title', 'description', 'category', 'date', 'location', 'capacity', 'price', 'discipline']
+    const safeUpdate = {}
+
+    for (const field of editableFields) {
+        if (updateData[field] !== undefined) {
+            safeUpdate[field] = updateData[field]
+        }
+    }
+
+    if (safeUpdate.date) {
+        const newDate = new Date(safeUpdate.date)
+        if (newDate <= new Date()) {
+            throw new Error('PAST_DATE')
+        }
+        safeUpdate.date = newDate
+    }
+
+    if (safeUpdate.capacity !== undefined && safeUpdate.capacity <= 0) {
+        throw new Error('INVALID_CAPACITY')
+    }
+
+    if (safeUpdate.price !== undefined && safeUpdate.price < 0) {
+        throw new Error('INVALID_PRICE')
+    }
+
+    return await saveEventUpdate(event._id, safeUpdate)
 }
 
 export const changeEventStatusService = async (event, newStatus) => {
