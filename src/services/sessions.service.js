@@ -2,6 +2,7 @@ import { getUserByEmail, saveUser } from "../repositories/users.repository.js";
 import { createHash } from "../utils/hash.js";
 import { isValidPassword } from '../utils/hash.js'
 import { generateToken } from '../utils/jwt.js'
+import { getAllUsersDB } from '../repositories/users.repository.js'
 
 export const registerUser = async ({
   first_name,
@@ -47,3 +48,5 @@ export const loginUser = async ({ email, password }) => {
 
     return token
 }
+
+export const getAllUsersService = () => getAllUsersDB()

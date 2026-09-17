@@ -1,5 +1,5 @@
 import { generateToken } from "../utils/jwt.js";
-import { getAllUsersDB } from '../repositories/users.repository.js'
+import { getAllUsersService } from '../services/sessions.service.js'
 import { CurrentUserDTO } from '../dto/current-user.dto.js'
 
 export const getSessions = async (req, res) => {
@@ -56,7 +56,7 @@ export const logout = (req, res) => {
 
 export const getAllUsers = async (req, res) => {
   try {
-    const users = await getAllUsersDB()
+    const users = await getAllUsersService()
     const usersDTO = users.map(user => new CurrentUserDTO(user))
     res.status(200).json({
       status: "success",
@@ -69,3 +69,5 @@ export const getAllUsers = async (req, res) => {
     });
   }
 };
+
+

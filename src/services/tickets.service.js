@@ -1,4 +1,4 @@
-import { saveTicket, getTicketById, getTicketsByUser, getTicketsByEvent, getActiveTicket, getReservedQuantity } from '../repositories/tickets.repository.js'
+import { saveTicket, getTicketById, getTicketsByUser, getTicketsByEvent, getActiveTicket, getReservedQuantity, saveTicketUpdate } from '../repositories/tickets.repository.js'
 import { getEventById } from '../repositories/events.repository.js'
 import { sendTicketConfirmationEmail, sendTicketCancellationEmail } from './mail.service.js'
 
@@ -60,14 +60,15 @@ export const cancelTicketService = async (ticketId, requestUser) => {
 
     if (ticket.status === 'cancelled') throw new Error('ALREADY_CANCELLED')
 
-    ticket.status = 'cancelled'
-    ticket.cancelledAt = new Date()
-    await ticket.save()
+    const updatedTicket = await saveTicketUpdate(ticket._id, {
+    status: 'cancelled',
+    cancelledAt: new Date()
+})
 
     await sendTicketCancellationEmail({
         to: requestUser.email, userName: requestUser.first_name,
         eventTitle: ticket.event.title, ticketCode: ticket.reservationCode
     })
 
-    return ticket
+    return updatedTicket
 }

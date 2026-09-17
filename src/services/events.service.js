@@ -106,3 +106,9 @@ export const changeEventStatusService = async (event, newStatus) => {
 
     return await saveEventUpdate(event._id, { status: newStatus })
 }
+
+export const getEventDetailService = async (id) => {
+    const event = await getEventById(id)
+    if (!event) throw new Error('EVENT_NOT_FOUND')
+    return event
+}

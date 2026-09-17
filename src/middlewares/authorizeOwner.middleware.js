@@ -1,9 +1,9 @@
-import { EventModel } from '../models/Event.js'
+import { getEventById } from '../repositories/events.repository.js'
 
 export const authorizeEventOwnerOrAdmin = async (req, res, next) => {
     try {
         const { id } = req.params
-        const event = await EventModel.findById(id)
+        const event = await getEventById(id)
 
         if (!event) {
             return res.status(404).json({ status: 'error', message: 'Evento no encontrado' })

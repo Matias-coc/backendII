@@ -83,6 +83,15 @@ Model → DAO → Repository → Service → DTO → Controller → Response
   ticket (`TicketResponseDTO`). Ningún endpoint expone `password`, incluso
   cuando el documento viene con `.populate()` de otro documento relacionado.
 
+  ### Correcciones de arquitectura aplicadas tras revisión
+- El middleware `authorizeEventOwnerOrAdmin` consulta eventos a través de
+  `repositories/events.repository.js`, no importa `EventModel` directamente.
+- `cancelTicketService` persiste cambios a través de
+  `repositories/tickets.repository.js` (`saveTicketUpdate`), no llama a
+  `.save()` sobre el documento directamente.
+- `events.controller.js` y `sessions.controller.js` ya no importan funciones
+  de `repositories/` — pasan siempre por la capa `services`.
+
 ### Manejo de errores
 Cada service lanza errores con un código interno (ej. `PAST_DATE`,
 `FORBIDDEN`, `DUPLICATE_TICKET`). Los controllers traducen ese código a la

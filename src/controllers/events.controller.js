@@ -1,5 +1,4 @@
-import { createEventService, listEventsService, updateEventService, changeEventStatusService } from '../services/events.service.js'
-import { getEventById } from '../repositories/events.repository.js'
+import { createEventService, listEventsService, updateEventService, changeEventStatusService, getEventDetailService } from '../services/events.service.js'
 import { EventResponseDTO } from '../dto/event-response.dto.js'
 
 
@@ -9,7 +8,8 @@ const errorMap = {
     INVALID_PRICE: [400, 'El precio no puede ser negativo'],
     PAST_DATE: [400, 'La fecha del evento debe ser futura'],
     EVENT_CANCELLED: [400, 'No se puede modificar un evento cancelado'],
-    INVALID_STATUS: [400, 'Estado no válido']
+    INVALID_STATUS: [400, 'Estado no válido'],
+    EVENT_NOT_FOUND: [404, 'Evento no encontrado']
 }
 
 const handleServiceError = (error, res) => {
@@ -42,20 +42,17 @@ export const getEvents = async (req, res) => {
 
 export const getEventDetail = async (req, res) => {
     try {
-        const event = await getEventById(req.params.id)
-        if (!event) {
-            return res.status(404).json({ status: 'error', message: 'Evento no encontrado' })
-        }
+        const event = await getEventDetailService(req.params.id)
         const eventDTO = new EventResponseDTO(event)
         res.status(200).json({ status: 'success', payload: eventDTO })
     } catch (error) {
-        res.status(500).json({ status: 'error', message: 'Error al obtener el evento' })
+        handleServiceError(error, res)
     }
 }
 
 export const updateEvent = async (req, res) => {
     try {
-        const updated = await updateEventService(req.event, req.body)
+        const updated = await updateEventService(req.event, req.body || {})
         const eventDTO = new EventResponseDTO(updated)
         res.status(200).json({ status: 'success', payload: eventDTO })
     } catch (error) {

@@ -10,3 +10,4 @@ export const sumReservedQuantityDB = (eventId) => TicketModel.aggregate([
     { $match: { event: eventId, status: { $in: ['confirmed', 'pending'] } } },
     { $group: { _id: '$event', total: { $sum: '$quantity' } } }
 ])
+export const updateTicketDB = (id, data) => TicketModel.findByIdAndUpdate(id, data, { new: true })
