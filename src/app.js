@@ -4,6 +4,7 @@ import sessionsRouter from './routes/sessions.router.js'
 import cookieParser from 'cookie-parser'
 import passport from './config/passport.config.js'
 import ticketsRouter from './routes/tickets.router.js'
+import { errorHandler } from './middlewares/error.middleware.js'
 
 const app = express()
 
@@ -21,5 +22,7 @@ app.get('/api/health', (req, res) => {
 
 app.use('/api/events', eventsRouter)
 app.use('/api/sessions', sessionsRouter)
+
+app.use(errorHandler)
 
 export default app

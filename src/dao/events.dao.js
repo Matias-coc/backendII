@@ -1,4 +1,5 @@
 import { EventModel } from '../models/Event.js'
+import '../models/Category.js'
 
 export const createEventDB = (data) => EventModel.create(data)
 export const findEventById = (id) => EventModel.findById(id)

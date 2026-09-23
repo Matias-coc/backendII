@@ -54,7 +54,7 @@ export const logout = (req, res) => {
   });
 };
 
-export const getAllUsers = async (req, res) => {
+export const getAllUsers = async (req, res, next) => {
   try {
     const users = await getAllUsersService()
     const usersDTO = users.map(user => new CurrentUserDTO(user))
@@ -63,11 +63,9 @@ export const getAllUsers = async (req, res) => {
       payload: usersDTO,
     });
   } catch (error) {
-    res.status(500).json({
-      status: "error",
-      message: "Error al obtener usuarios",
-    });
+    next(error); 
   }
 };
+
 
 

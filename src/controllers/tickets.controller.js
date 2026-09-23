@@ -1,64 +1,48 @@
 import { createTicketService, getMyTicketsService, getEventTicketsService, cancelTicketService } from '../services/tickets.service.js'
 import { TicketResponseDTO } from '../dto/ticket-response.dto.js'
+import { CreateTicketDTO } from '../dto/create-ticket.dto.js'
 
-const errorMap = {
-    EVENT_NOT_FOUND: [404, 'Evento no encontrado'],
-    EVENT_NOT_AVAILABLE: [400, 'El evento no está disponible para inscripciones'],
-    EVENT_FINISHED: [400, 'No es posible inscribirse a un evento finalizado'],
-    INVALID_QUANTITY: [400, 'La cantidad solicitada no es válida'],
-    DUPLICATE_TICKET: [409, 'Ya tenés una inscripción activa para este evento'],
-    NO_CAPACITY: [400, 'No hay cupos suficientes disponibles'],
-    TICKET_NOT_FOUND: [404, 'Ticket no encontrado'],
-    FORBIDDEN: [403, 'No tenés permisos para realizar esta acción'],
-    ALREADY_CANCELLED: [400, 'El ticket ya está cancelado']
-}
 
-const handleTicketError = (error, res) => {
-    const mapped = errorMap[error.message]
-    if (mapped) return res.status(mapped[0]).json({ status: 'error', message: mapped[1] })
-    return res.status(500).json({ status: 'error', message: 'Error interno del servidor' })
-}
-
-export const createTicket = async (req, res) => {
+export const createTicket = async (req, res, next) => {
     try {
         const { eid } = req.params
-        const { quantity } = req.body || {}
-        const ticket = await createTicketService(eid, quantity, req.user)
+        const ticketInput = new CreateTicketDTO(req.body)
+        const ticket = await createTicketService(eid, ticketInput.quantity, req.user)
         const ticketsDTO = new TicketResponseDTO(ticket)
         res.status(201).json({ status: 'success', message: 'Inscripción realizada correctamente', payload: ticketsDTO })
     } catch (error) {
-        handleTicketError(error, res)
+        next(error)
     }
 }
 
-export const getMyTickets = async (req, res) => {
+export const getMyTickets = async (req, res, next) => {
     try {
         const tickets = await getMyTicketsService(req.user._id)
         const ticketsDTO = tickets.map(ticket => new TicketResponseDTO(ticket))
         res.status(200).json({ status: 'success', payload: ticketsDTO })
     } catch (error) {
-        res.status(500).json({ status: 'error', message: 'Error al obtener tickets' })
+        next(error)
     }
 }
 
-export const getEventTickets = async (req, res) => {
+export const getEventTickets = async (req, res, next) => {
     try {
         const { eid } = req.params
         const tickets = await getEventTicketsService(eid, req.user)
         const ticketsDTO = tickets.map(ticket => new TicketResponseDTO(ticket))
         res.status(200).json({ status: 'success', payload: ticketsDTO })
     } catch (error) {
-        handleTicketError(error, res)
+        next(error)
     }
 }
 
-export const cancelTicket = async (req, res) => {
+export const cancelTicket = async (req, res, next) => {
     try {
         const { tid } = req.params
         const ticket = await cancelTicketService(tid, req.user)
         const ticketsDTO = new TicketResponseDTO(ticket)
         res.status(200).json({ status: 'success', message: 'Inscripción cancelada correctamente', payload: ticketsDTO })
     } catch (error) {
-        handleTicketError(error, res)
+        next(error)
     }
 }

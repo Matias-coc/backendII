@@ -169,6 +169,40 @@ asignan manualmente en la base de datos.
 | Inscribirse a un torneo | ✅ | ✅ | ✅ |
 | Ver inscriptos de un torneo | ❌ | solo propios | ✅ |
 
+## Usuarios de prueba
+
+El registro público (`POST /api/sessions/register`) siempre crea usuarios
+con `role: 'user'`. Los roles `organizer` y `admin` no se pueden asignar
+desde la API por diseño (evita que cualquiera se auto-asigne permisos) —
+se asignan manualmente en la base de datos, simulando la tarea que en un
+sistema real haría un panel de administración interno.
+
+### Cómo crear un usuario con rol organizer o admin
+
+1. Registrá un usuario normal con `POST /api/sessions/register`.
+2. Entrá a MongoDB Atlas → Browse Collections → base `eventosDB` →
+   colección `users`.
+3. Buscá el documento del usuario recién creado y editá el campo `role`,
+   cambiándolo de `"user"` a `"organizer"` o `"admin"`.
+4. Si el usuario ya tenía una sesión iniciada, tiene que volver a hacer
+   `POST /api/sessions/login` — el rol viaja dentro del JWT, así que un
+   token emitido antes del cambio sigue reflejando el rol viejo hasta que
+   se genera uno nuevo.
+
+### Set de usuarios usados durante el desarrollo y testing
+
+| Email | Rol | Uso |
+|---|---|---|
+| ana@mail.com | admin | Gestión total, pruebas de autorización cruzada |
+| leo@mail.com | organizer | Creación y edición de torneos propios |
+| carlos@mail.com | organizer | Pruebas de autorización entre organizers distintos |
+| sofia@mail.com, floyd@mail.com, julia@mail.com | user | Inscripciones, cancelaciones, pruebas de permisos denegados |
+
+Las contraseñas de estos usuarios de prueba no se documentan en el README
+por razones de seguridad — para reproducir el flujo completo, se puede
+registrar un usuario nuevo y seguir el paso 2-3 de arriba para asignarle
+el rol necesario.
+
 ### Diferencia entre 401 y 403
 - **401 No autenticado**: no hay cookie, el token es inválido o expiró.
   El backend no sabe quién es el usuario.
@@ -321,6 +355,35 @@ al cancelarlo. En este proyecto se usa **Ethereal** (servicio de testing de
 Nodemailer) para no enviar correos reales durante el desarrollo — los
 emails se pueden previsualizar desde la URL que devuelve
 `nodemailer.getTestMessageUrl()`, impresa en consola tras cada envío.
+
+## Testing
+
+Se implementaron tests de humo con el test runner nativo de Node
+(`node --test`) y `supertest`, en `tests/api.smoke.test.js`, cubriendo:
+
+- Registro de usuario
+- Login y obtención de cookie de sesión
+- Consulta de usuario autenticado (`/current`)
+- Listado de eventos con paginación
+- Autorización por rol (403 al intentar crear un evento sin permisos)
+
+Correr con: `npm test`
+
+### DTOs de entrada
+Además de los DTOs de salida (Módulo 8), se agregaron DTOs de entrada
+(`CreateEventDTO`, `CreateTicketDTO`) que validan y normalizan el `body`
+antes de que llegue a la capa de `services`, separando "forma correcta de
+los datos" (DTO) de "reglas de negocio" (service).
+
+### Middleware centralizado de errores
+Los controllers ya no arman la respuesta de error ellos mismos: cuando un
+service lanza un error (`throw new Error('CODIGO')`), el controller lo
+captura y lo delega con `next(error)`. Un único middleware,
+`middlewares/error.middleware.js`, montado al final de `app.js`, traduce
+ese código interno a la respuesta HTTP correspondiente usando el mapa
+centralizado `utils/error-codes.js`. Errores no contemplados (por ejemplo,
+un `CastError` de Mongoose por un ID mal formado) caen en un `500` genérico,
+sin exponer detalles internos al cliente.
 
 ## Pruebas realizadas
 
