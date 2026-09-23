@@ -12,14 +12,14 @@ passport.use('register', new LocalStrategy(
             const { first_name, last_name } = req.body
 
             if (!first_name || !last_name || !email || !password) {
-                return done(null, false, { message: 'Todos los campos son obligatorios' })
+                return done(new Error('MISSING_FIELDS'))
             }
 
             const normalizedEmail = email.toLowerCase().trim()
             const userExists = await getUserByEmail(normalizedEmail)
 
             if (userExists) {
-                return done(null, false, { message: 'El email ya está registrado' })
+                return done(new Error('EMAIL_EXISTS'))
             }
 
             const hashedPassword = await createHash(password)
@@ -43,13 +43,13 @@ passport.use('login', new LocalStrategy(
             const normalizedEmail = email.toLowerCase().trim()
             const user = await getUserByEmail(normalizedEmail)
             if (!user) {
-                return done(null, false, { message: 'Credenciales inválidas' })
+                return done(new Error('INVALID_CREDENTIALS'))
             }
 
             const validPassword = await isValidPassword(password, user.password)
 
             if (!validPassword) {
-                return done(null, false, { message: 'Credenciales inválidas' })
+                return done(new Error('INVALID_CREDENTIALS'))
             }
 
             return done(null, user)

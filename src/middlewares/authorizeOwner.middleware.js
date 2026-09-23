@@ -19,6 +19,6 @@ export const authorizeEventOwnerOrAdmin = async (req, res, next) => {
         req.event = event  
         next()
     } catch (error) {
-        res.status(500).json({ status: 'error', message: 'Error al validar propiedad del evento' })
+        next(error)
     }
 }

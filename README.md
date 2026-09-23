@@ -385,6 +385,16 @@ centralizado `utils/error-codes.js`. Errores no contemplados (por ejemplo,
 un `CastError` de Mongoose por un ID mal formado) caen en un `500` genérico,
 sin exponer detalles internos al cliente.
 
+### Corrección: manejo de errores de Passport
+Las estrategias `register` y `login` ahora señalan sus fallos de
+validación (`MISSING_FIELDS`, `EMAIL_EXISTS`, `INVALID_CREDENTIALS`) con
+`done(new Error('CODIGO'))` en vez de `done(null, false, {message})`. Esto
+hace que Passport delegue automáticamente a `next(error)`, y el error
+termine en el mismo middleware centralizado que maneja el resto de los
+errores del proyecto — antes, estos casos devolvían una respuesta genérica
+de Passport (`401` en texto plano), sin pasar por el formato JSON estándar
+de la API.
+
 ## Pruebas realizadas
 
 **Sesiones:**

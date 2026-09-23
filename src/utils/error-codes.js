@@ -14,5 +14,6 @@ export const ERROR_CODES = {
     TICKET_NOT_FOUND: [404, 'Ticket no encontrado'],
     FORBIDDEN: [403, 'No tenés permisos para realizar esta acción'],
     ALREADY_CANCELLED: [400, 'El ticket ya está cancelado'],
-    EMAIL_EXISTS: [409, 'El email ya está registrado']
+    EMAIL_EXISTS: [409, 'El email ya está registrado'],
+    INVALID_CREDENTIALS: [401, 'Credenciales inválidas']
 }
