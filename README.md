@@ -395,6 +395,19 @@ errores del proyecto — antes, estos casos devolvían una respuesta genérica
 de Passport (`401` en texto plano), sin pasar por el formato JSON estándar
 de la API.
 
+### Corrección: manejo de errores de autenticación (authenticateCurrent)
+`middlewares/auth.middleware.js` pasó de exportar directamente
+`passport.authenticate('current', { session: false })` a envolverlo en una
+función con callback propio. Esto es necesario porque los fallos de la
+estrategia JWT (token ausente, inválido o expirado) ocurren *dentro* de
+`passport-jwt`, antes de llegar a la lógica de la estrategia — así que no
+alcanza con lanzar errores propios ahí, como sí se pudo hacer con
+`register`/`login`. El callback personalizado intercepta `(err, user)` y
+responde `401` con el formato JSON estándar del proyecto en cualquier caso
+de fallo, sin importar la causa. Esto corrige el mismo problema que
+afectaba a `register`/`login`, pero a nivel de **todas** las rutas
+protegidas del proyecto, ya que todas usan `authenticateCurrent`.
+
 ## Pruebas realizadas
 
 **Sesiones:**
